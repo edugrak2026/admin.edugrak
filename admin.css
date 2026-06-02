@@ -1,0 +1,64 @@
+/* Admin Specific Styles */
+
+.nav-btn.active div {
+    background-color: #059669;
+    color: white;
+    box-shadow: 0 10px 15px -3px rgba(5, 150, 105, 0.2);
+}
+
+.nav-btn.active span {
+    color: #047857;
+}
+
+.nav-btn.active {
+    background-color: #ecfdf5;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f8fafc;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #cbd5e1;
+}
+
+/* Transitions */
+.tab-content {
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Form Styles */
+input:focus, select:focus, textarea:focus {
+    box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.1);
+}
+
+/* Image Hover */
+.group:hover img {
+    transform: scale(1.05);
+}
+
+/* Table zebra stripes */
+tbody tr:nth-child(even) {
+    background-color: #fdfdfd;
+}
+
+/* Custom colors for tags */
+.tag-lbi { background: #ecfdf5; color: #059669; }
+.tag-pk { background: #fffbeb; color: #d97706; }
+.tag-pm { background: #fff1f2; color: #e11d48; }
+.tag-ppu { background: #ecfeff; color: #0891b2; }
