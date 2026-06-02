@@ -62,16 +62,8 @@ async function initAppData() {
                 ],
                 questionsBank: {
                     'Bedah Materi': {
-                        'LBI': {
-                            'Ejaan': [
-                                { q: "Manakah penulisan kata baku yang benar?", a: ["Apotik", "Apotek", "Analisa", "Praktek"], correct: 1, explain: "Kata baku yang benar menurut KBBI adalah Apotek, Analisis, dan Praktik." }
-                            ]
-                        },
-                        'PK': {
-                            'Aljabar': [
-                                { q: "Jika 2x + 5 = 15, maka nilai x adalah...", a: ["2", "5", "10", "7"], correct: 1, explain: "2x = 15 - 5 => 2x = 10 => x = 5." }
-                            ]
-                        }
+                        'LBI': { 'Ejaan': [] },
+                        'PK': { 'Aljabar': [] }
                     },
                     'Soal Paket': { 'all': { 'Paket Tryout 1': [] } },
                     'Kuis Kilat': { 'all': { 'Kuis Harian 1': [] } },
@@ -95,6 +87,8 @@ async function initAppData() {
                     'Kuis Kilat': { icon: '⚡', desc: 'Kuis singkat.', isPremium: false },
                     'Arena TO': { icon: '🏆', desc: 'Tryout Nasional.', isPremium: false }
                 },
+                leaderboards: { 'Arena TO': { 'Tryout Nasional Akbar 2027': [] } },
+                irtConfigs: { 'Arena TO': { 'Tryout Nasional Akbar 2027': { 'PU': {}, 'PK': {}, 'PPU': {}, 'LBI': {} } } },
                 users: [],
                 premiumPackages: [],
                 coupons: []
@@ -102,6 +96,11 @@ async function initAppData() {
             await saveData();
         } else {
             appData = data;
+            // Ensure all required keys exist even if server data is older
+            if (!appData.coupons) appData.coupons = [];
+            if (!appData.premiumPackages) appData.premiumPackages = [];
+            if (!appData.irtConfigs) appData.irtConfigs = {};
+            if (!appData.exerciseConfigs) appData.exerciseConfigs = {};
         }
         
         init();
@@ -1115,101 +1114,100 @@ function toggleSoalFields(type) {
     }
 }
 
-function handleSave(e) {
+async function handleSave(e) {
     if (e) e.preventDefault();
+    
+    const btn = document.getElementById('btn-save');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Menyimpan...";
+
     const formData = new FormData(adminForm);
     const data = Object.fromEntries(formData.entries());
 
-    if (currentModalType === 'materi') {
-        if (editingId) {
-            const idx = appData.videos.findIndex(v => v.id === editingId);
-            appData.videos[idx] = { ...appData.videos[idx], ...data };
-        } else {
-            appData.videos.push({ id: Date.now(), ...data, tags: [`#${data.subject.toLowerCase()}`, '#utbk'] });
-        }
-    } else if (currentModalType === 'to-package') {
-        const { packageName, status, startDate, endDate, description, durationText, isPremium } = data;
-        if (!appData.questionsBank['Arena TO']) appData.questionsBank['Arena TO'] = {};
-        
-        // Extract subtest durations
-        const subtestDurations = {};
-        appData.subtesData.forEach(s => {
-            const dur = data[`sub_dur_${s.id}`];
-            if (dur) subtestDurations[s.id] = parseInt(dur);
-        });
-
-        // If editing
-        if (editingId && editingId !== packageName) {
-            appData.questionsBank['Arena TO'][packageName] = appData.questionsBank['Arena TO'][editingId];
-            delete appData.questionsBank['Arena TO'][editingId];
-        }
-
-        if (!appData.questionsBank['Arena TO'][packageName]) {
-            appData.questionsBank['Arena TO'][packageName] = {};
+    try {
+        if (currentModalType === 'materi') {
+            if (editingId) {
+                const idx = appData.videos.findIndex(v => v.id === editingId);
+                appData.videos[idx] = { ...appData.videos[idx], ...data };
+            } else {
+                appData.videos.push({ id: Date.now(), ...data, tags: [`#${data.subject.toLowerCase()}`, '#utbk'] });
+            }
+        } else if (currentModalType === 'to-package') {
+            const { packageName, status, startDate, endDate, description, durationText, isPremium } = data;
+            if (!appData.questionsBank['Arena TO']) appData.questionsBank['Arena TO'] = {};
+            
+            const subtestDurations = {};
             appData.subtesData.forEach(s => {
-                appData.questionsBank['Arena TO'][packageName][s.id] = [];
+                const dur = data[`sub_dur_${s.id}`];
+                if (dur) subtestDurations[s.id] = parseInt(dur);
             });
-        }
 
-        // Update details
-        if (!appData.latihanDetails['Arena TO']) appData.latihanDetails['Arena TO'] = { 'all': [] };
-        const details = appData.latihanDetails['Arena TO']['all'];
-        const existingIdx = details.findIndex(d => d.name === (editingId || packageName));
-        const newDetail = { 
-            name: packageName, 
-            durationText, 
-            subtestDurations,
-            status,
-            startDate,
-            endDate,
-            description,
-            isPremium: isPremium === 'true'
-        };
-        if (existingIdx >= 0) details[existingIdx] = newDetail;
-        else details.push(newDetail);
+            if (editingId && editingId !== packageName) {
+                appData.questionsBank['Arena TO'][packageName] = appData.questionsBank['Arena TO'][editingId];
+                delete appData.questionsBank['Arena TO'][editingId];
+            }
 
-        saveData();
-        renderLatihanLevel2('Arena TO');
-    } else if (currentModalType === 'latihan-package') {
-        const { lType, subtes, packageName, oldPackageName, duration, status, isPremium } = data;
-        if (!appData.questionsBank[lType][subtes]) appData.questionsBank[lType][subtes] = {};
-        
-        // Handle rename
-        if (oldPackageName && oldPackageName !== packageName) {
-            appData.questionsBank[lType][subtes][packageName] = appData.questionsBank[lType][subtes][oldPackageName];
-            delete appData.questionsBank[lType][subtes][oldPackageName];
-        }
+            if (!appData.questionsBank['Arena TO'][packageName]) {
+                appData.questionsBank['Arena TO'][packageName] = {};
+                appData.subtesData.forEach(s => {
+                    appData.questionsBank['Arena TO'][packageName][s.id] = [];
+                });
+            }
 
-        if (!appData.questionsBank[lType][subtes][packageName]) {
-            appData.questionsBank[lType][subtes][packageName] = [];
-        }
+            if (!appData.latihanDetails['Arena TO']) appData.latihanDetails['Arena TO'] = { 'all': [] };
+            const details = appData.latihanDetails['Arena TO']['all'];
+            const existingIdx = details.findIndex(d => d.name === (editingId || packageName));
+            const newDetail = { 
+                name: packageName, 
+                durationText, 
+                subtestDurations,
+                status,
+                startDate,
+                endDate,
+                description,
+                isPremium: isPremium === 'true'
+            };
+            if (existingIdx >= 0) details[existingIdx] = newDetail;
+            else details.push(newDetail);
 
-        // Update details
-        if (!appData.latihanDetails[lType]) appData.latihanDetails[lType] = {};
-        if (!appData.latihanDetails[lType][subtes]) appData.latihanDetails[lType][subtes] = [];
-        const details = appData.latihanDetails[lType][subtes];
-        const existingIdx = details.findIndex(d => d.name === (oldPackageName || packageName));
-        const newDetail = { name: packageName, duration: parseInt(duration), status, isPremium: isPremium === 'true' };
-        if (existingIdx >= 0) details[existingIdx] = newDetail;
-        else details.push(newDetail);
+            renderLatihanLevel2('Arena TO');
+        } else if (currentModalType === 'latihan-package') {
+            const { lType, subtes, packageName, oldPackageName, duration, status, isPremium } = data;
+            if (!appData.questionsBank[lType][subtes]) appData.questionsBank[lType][subtes] = {};
+            
+            if (oldPackageName && oldPackageName !== packageName) {
+                appData.questionsBank[lType][subtes][packageName] = appData.questionsBank[lType][subtes][oldPackageName];
+                delete appData.questionsBank[lType][subtes][oldPackageName];
+            }
 
-        saveData();
-        renderLatihanLevel3(lType, subtes, null);
-    } else if (currentModalType === 'soal') {
-        const { lType, subtes, q, type, image, correct, explain, a0, a1, a2, a3 } = data;
-        const pkg = data.package; // Avoid reserved word issues if any, though destructuring handled it
-        
-        const questionObj = { 
-            q, 
-            type, 
-            image: image || '', 
-            correct: type === 'essay' ? correct : parseInt(correct), 
-            explain, 
-            a: type === 'mc' ? [a0, a1, a2, a3] : [] 
-        };
-        
-        let targetArray;
-        try {
+            if (!appData.questionsBank[lType][subtes][packageName]) {
+                appData.questionsBank[lType][subtes][packageName] = [];
+            }
+
+            if (!appData.latihanDetails[lType]) appData.latihanDetails[lType] = {};
+            if (!appData.latihanDetails[lType][subtes]) appData.latihanDetails[lType][subtes] = [];
+            const details = appData.latihanDetails[lType][subtes];
+            const existingIdx = details.findIndex(d => d.name === (oldPackageName || packageName));
+            const newDetail = { name: packageName, duration: parseInt(duration), status, isPremium: isPremium === 'true' };
+            if (existingIdx >= 0) details[existingIdx] = newDetail;
+            else details.push(newDetail);
+
+            renderLatihanLevel3(lType, subtes, null);
+        } else if (currentModalType === 'soal') {
+            const { lType, subtes, q, type, image, correct, explain, a0, a1, a2, a3 } = data;
+            const pkg = data.package;
+            
+            const questionObj = { 
+                q, 
+                type, 
+                image: image || '', 
+                correct: type === 'essay' ? correct : parseInt(correct), 
+                explain, 
+                a: type === 'mc' ? [a0, a1, a2, a3] : [] 
+            };
+            
+            let targetArray;
             if (lType === 'Arena TO') {
                 if (!appData.questionsBank[lType][pkg]) appData.questionsBank[lType][pkg] = {};
                 if (!appData.questionsBank[lType][pkg][subtes]) appData.questionsBank[lType][pkg][subtes] = [];
@@ -1225,90 +1223,69 @@ function handleSave(e) {
             } else {
                 targetArray.push(questionObj);
             }
-            saveData();
             renderLatihanLevel4(lType, subtes, pkg);
-        } catch (err) {
-            console.error("Error saving question:", err);
-            alert("Terjadi kesalahan saat menyimpan soal. Pastikan data struktur benar.");
-            return;
-        }
-    } else if (currentModalType === 'subtes') {
-        const { id, name, icon, color, oldId } = data;
-        const newSubtest = { id, name, icon, color };
-        
-        if (oldId) {
-            const idx = appData.subtesData.findIndex(s => s.id === oldId);
-            if (idx !== -1) {
-                appData.subtesData[idx] = newSubtest;
+        } else if (currentModalType === 'subtes') {
+            const { id, name, icon, color, oldId } = data;
+            const newSubtest = { id, name, icon, color };
+            
+            if (oldId) {
+                const idx = appData.subtesData.findIndex(s => s.id === oldId);
+                if (idx !== -1) appData.subtesData[idx] = newSubtest;
+            } else {
+                appData.subtesData.push(newSubtest);
             }
-        } else {
-            appData.subtesData.push(newSubtest);
+            renderSubtes();
+        } else if (currentModalType === 'premium-package') {
+            const { name, price, duration, description } = data;
+            const features = formData.getAll('features');
+            const pkgData = { 
+                id: editingId || `PKG-${Date.now()}`, 
+                name, 
+                price: parseInt(price), 
+                duration: parseInt(duration),
+                description,
+                features
+            };
+            
+            if (!appData.premiumPackages) appData.premiumPackages = [];
+            if (editingId) {
+                const idx = appData.premiumPackages.findIndex(p => p.id === editingId);
+                appData.premiumPackages[idx] = pkgData;
+            } else {
+                appData.premiumPackages.push(pkgData);
+            }
+            renderPremium();
+        } else if (currentModalType === 'coupon') {
+            const { code, type, value, isActive } = data;
+            const couponData = { 
+                id: editingId || `CPN-${Date.now()}`, 
+                code: code.toUpperCase(), 
+                type, 
+                value: parseInt(value), 
+                isActive: isActive === 'true' 
+            };
+            
+            if (!appData.coupons) appData.coupons = [];
+            if (editingId) {
+                const idx = appData.coupons.findIndex(c => c.id === editingId);
+                appData.coupons[idx] = couponData;
+            } else {
+                appData.coupons.push(couponData);
+            }
+            renderPremium();
         }
-        
-        saveData();
-        renderSubtes();
-    } else if (currentModalType === 'config-item') {
-        const { type, subtes, name, duration } = data;
-        if (!appData.latihanDetails[type]) appData.latihanDetails[type] = {};
-        if (!appData.latihanDetails[type][subtes]) appData.latihanDetails[type][subtes] = [];
-        appData.latihanDetails[type][subtes].push({ name, duration: parseInt(duration) });
-    } else if (currentModalType === 'exercise-type') {
-        const { name, icon, desc, isPremium } = data;
-        if (!appData.questionsBank[name] || editingId) {
-            if (!appData.questionsBank[name]) appData.questionsBank[name] = {};
-            if (!appData.latihanDetails[name]) appData.latihanDetails[name] = {};
-            if (!appData.exerciseConfigs) appData.exerciseConfigs = {};
-            appData.exerciseConfigs[name] = { icon, desc, isPremium: isPremium === 'true' };
-            saveData();
-            renderLatihanLevel1();
-        } else {
-            alert("Jenis latihan ini sudah ada.");
-            return;
-        }
-    } else if (currentModalType === 'premium-package') {
-        const { name, price, duration, description } = data;
-        const features = formData.getAll('features');
-        const pkgData = { 
-            id: editingId || `PKG-${Date.now()}`, 
-            name, 
-            price: parseInt(price), 
-            duration: parseInt(duration),
-            description,
-            features
-        };
-        
-        if (!appData.premiumPackages) appData.premiumPackages = [];
-        if (editingId) {
-            const idx = appData.premiumPackages.findIndex(p => p.id === editingId);
-            appData.premiumPackages[idx] = pkgData;
-        } else {
-            appData.premiumPackages.push(pkgData);
-        }
-        renderPremium();
-    } else if (currentModalType === 'coupon') {
-        const { code, type, value, isActive } = data;
-        const couponData = { 
-            id: editingId || `CPN-${Date.now()}`, 
-            code: code.toUpperCase(), 
-            type, 
-            value: parseInt(value), 
-            isActive: isActive === 'true' 
-        };
-        
-        if (!appData.coupons) appData.coupons = [];
-        if (editingId) {
-            const idx = appData.coupons.findIndex(c => c.id === editingId);
-            appData.coupons[idx] = couponData;
-        } else {
-            appData.coupons.push(couponData);
-        }
-        renderPremium();
-    }
 
-    saveData();
-    closeModal();
-    showNotif();
-    switchTab(currentTab); // Refresh current tab
+        await saveData();
+        closeModal();
+        showNotif();
+        switchTab(currentTab);
+    } catch (err) {
+        console.error("Save error:", err);
+        alert("Gagal menyimpan perubahan. Silakan cek koneksi.");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
 }
 
 // Edit functions
