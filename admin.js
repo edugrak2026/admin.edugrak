@@ -56,19 +56,32 @@ async function initAppData() {
         if (!data || Object.keys(data).length === 0 || !data.questionsBank) {
             console.log('Database baru/kosong, menginisialisasi struktur...');
             appData = {
-                users: [],
-                videos: [],
-                questionsBank: { 
-                    'Bedah Materi': {}, 
-                    'Soal Paket': {}, 
-                    'Kuis Kilat': {}, 
-                    'Arena TO': {} 
+                videos: [
+                    { id: 1, title: "Strategi Literasi Bahasa Indonesia - Memahami Ide Pokok", subject: "LBI", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", duration: "12:45", description: "Pelajari cara cepat menemukan ide pokok dalam teks panjang untuk UTBK.", tags: ["#lbi", "#utbk"] },
+                    { id: 2, title: "Pengetahuan Kuantitatif: Trik Cepat Aljabar", subject: "PK", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", duration: "15:20", description: "Kumpulan rumus praktis aljabar yang sering muncul di ujian.", tags: ["#pk", "#matematika"] }
+                ],
+                questionsBank: {
+                    'Bedah Materi': {
+                        'LBI': {
+                            'Ejaan': [
+                                { q: "Manakah penulisan kata baku yang benar?", a: ["Apotik", "Apotek", "Analisa", "Praktek"], correct: 1, explain: "Kata baku yang benar menurut KBBI adalah Apotek, Analisis, dan Praktik." }
+                            ]
+                        },
+                        'PK': {
+                            'Aljabar': [
+                                { q: "Jika 2x + 5 = 15, maka nilai x adalah...", a: ["2", "5", "10", "7"], correct: 1, explain: "2x = 15 - 5 => 2x = 10 => x = 5." }
+                            ]
+                        }
+                    },
+                    'Soal Paket': { 'all': { 'Paket Tryout 1': [] } },
+                    'Kuis Kilat': { 'all': { 'Kuis Harian 1': [] } },
+                    'Arena TO': { 'Tryout Nasional Akbar 2027': { 'LBI': [], 'PK': [], 'PPU': [] } }
                 },
-                latihanDetails: { 
-                    'Bedah Materi': {}, 
-                    'Soal Paket': {}, 
-                    'Kuis Kilat': {}, 
-                    'Arena TO': {} 
+                latihanDetails: {
+                    'Bedah Materi': { 'LBI': [{ name: 'Ejaan', duration: 0 }], 'PK': [{ name: 'Aljabar', duration: 0 }] },
+                    'Soal Paket': { 'all': [{ name: 'Paket Tryout 1', duration: 0 }] },
+                    'Kuis Kilat': { 'all': [{ name: 'Kuis Harian 1', duration: 60 }] },
+                    'Arena TO': { 'all': [{ name: 'Tryout Nasional Akbar 2027', duration: 1800, status: 'Published' }] }
                 },
                 subtesData: [
                     { id: 'PU', name: 'Penalaran Umum', icon: '🧠', color: 'indigo' },
@@ -82,10 +95,10 @@ async function initAppData() {
                     'Kuis Kilat': { icon: '⚡', desc: 'Kuis singkat.', isPremium: false },
                     'Arena TO': { icon: '🏆', desc: 'Tryout Nasional.', isPremium: false }
                 },
+                users: [],
                 premiumPackages: [],
                 coupons: []
             };
-            // Simpan struktur ini ke server agar database tidak kosong lagi
             await saveData();
         } else {
             appData = data;
@@ -160,8 +173,7 @@ function setupEventListeners() {
     });
 
     adminForm.onsubmit = (e) => {
-        e.preventDefault();
-        handleSave();
+        handleSave(e);
     };
 
     document.getElementById('btn-save').onclick = () => adminForm.requestSubmit();
@@ -1103,7 +1115,8 @@ function toggleSoalFields(type) {
     }
 }
 
-function handleSave() {
+function handleSave(e) {
+    if (e) e.preventDefault();
     const formData = new FormData(adminForm);
     const data = Object.fromEntries(formData.entries());
 
