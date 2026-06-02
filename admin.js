@@ -43,20 +43,25 @@ function adminLogout() {
 
 async function initAppData() {
     try {
+        console.log('Menghubungkan ke API:', `${API_URL}/appdata`);
         const response = await fetch(`${API_URL}/appdata`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP Error! Status: ${response.status}`);
+        }
+
         appData = await response.json();
         if (!appData || Object.keys(appData).length < 5) {
-            alert("Data aplikasi di server masih kosong. Silakan buka website utama terlebih dahulu untuk inisialisasi.");
-            window.location.href = 'index.html';
+            alert("Data aplikasi masih kosong. Inisialisasi data di website utama dulu.");
+            window.location.href = '../index.html';
             return;
         }
         init();
     } catch (err) {
-        console.error('Error loading AppData from server:', err);
+        console.error('Koneksi Gagal:', err);
         appData = JSON.parse(localStorage.getItem('edugrakAppData'));
         if (!appData) {
-            alert("Gagal terhubung ke server dan data lokal tidak ditemukan.");
-            window.location.href = 'index.html';
+            alert(`Gagal terhubung ke server.\nError: ${err.message}\n\nSilakan cek tab Logs di Vercel atau pastikan CORS sudah di-redeploy.`);
             return;
         }
         init();
