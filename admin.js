@@ -43,76 +43,23 @@ function adminLogout() {
 
 async function initAppData() {
     try {
-        console.log('Menghubungkan ke API:', `${API_URL}/appdata`);
         const response = await fetch(`${API_URL}/appdata`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP Error! Status: ${response.status}`);
+        appData = await response.json();
+        if (!appData || Object.keys(appData).length < 5) {
+            alert("Data aplikasi di server masih kosong. Silakan buka website utama terlebih dahulu untuk inisialisasi.");
+            window.location.href = 'index.html';
+            return;
         }
-
-        const data = await response.json();
-        
-        // JIKA DATABASE KOSONG, ISI DENGAN STRUKTUR DEFAULT AGAR TOMBOL MUNCUL
-        if (!data || Object.keys(data).length === 0 || !data.questionsBank) {
-            console.log('Database baru/kosong, menginisialisasi struktur...');
-            appData = {
-                videos: [
-                    { id: 1, title: "Strategi Literasi Bahasa Indonesia - Memahami Ide Pokok", subject: "LBI", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", duration: "12:45", description: "Pelajari cara cepat menemukan ide pokok dalam teks panjang untuk UTBK.", tags: ["#lbi", "#utbk"] },
-                    { id: 2, title: "Pengetahuan Kuantitatif: Trik Cepat Aljabar", subject: "PK", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", duration: "15:20", description: "Kumpulan rumus praktis aljabar yang sering muncul di ujian.", tags: ["#pk", "#matematika"] }
-                ],
-                questionsBank: {
-                    'Bedah Materi': {
-                        'LBI': { 'Ejaan': [] },
-                        'PK': { 'Aljabar': [] }
-                    },
-                    'Soal Paket': { 'all': { 'Paket Tryout 1': [] } },
-                    'Kuis Kilat': { 'all': { 'Kuis Harian 1': [] } },
-                    'Arena TO': { 'Tryout Nasional Akbar 2027': { 'LBI': [], 'PK': [], 'PPU': [] } }
-                },
-                latihanDetails: {
-                    'Bedah Materi': { 'LBI': [{ name: 'Ejaan', duration: 0 }], 'PK': [{ name: 'Aljabar', duration: 0 }] },
-                    'Soal Paket': { 'all': [{ name: 'Paket Tryout 1', duration: 0 }] },
-                    'Kuis Kilat': { 'all': [{ name: 'Kuis Harian 1', duration: 60 }] },
-                    'Arena TO': { 'all': [{ name: 'Tryout Nasional Akbar 2027', duration: 1800, status: 'Published' }] }
-                },
-                subtesData: [
-                    { id: 'PU', name: 'Penalaran Umum', icon: '🧠', color: 'indigo' },
-                    { id: 'PK', name: 'Pengetahuan Kuantitatif', icon: '📊', color: 'amber' },
-                    { id: 'PPU', name: 'Pengetahuan Umum', icon: '📖', color: 'cyan' },
-                    { id: 'LBI', name: 'Literasi Indo', icon: '🇮🇩', color: 'emerald' }
-                ],
-                exerciseConfigs: {
-                    'Bedah Materi': { icon: '📖', desc: 'Latihan per topik materi.', isPremium: false },
-                    'Soal Paket': { icon: '📝', desc: 'Simulasi paket soal.', isPremium: false },
-                    'Kuis Kilat': { icon: '⚡', desc: 'Kuis singkat.', isPremium: false },
-                    'Arena TO': { icon: '🏆', desc: 'Tryout Nasional.', isPremium: false }
-                },
-                leaderboards: { 'Arena TO': { 'Tryout Nasional Akbar 2027': [] } },
-                irtConfigs: { 'Arena TO': { 'Tryout Nasional Akbar 2027': { 'PU': {}, 'PK': {}, 'PPU': {}, 'LBI': {} } } },
-                users: [],
-                premiumPackages: [],
-                coupons: []
-            };
-            await saveData();
-        } else {
-            appData = data;
-            // Ensure all required keys exist even if server data is older
-            if (!appData.coupons) appData.coupons = [];
-            if (!appData.premiumPackages) appData.premiumPackages = [];
-            if (!appData.irtConfigs) appData.irtConfigs = {};
-            if (!appData.exerciseConfigs) appData.exerciseConfigs = {};
-        }
-        
         init();
     } catch (err) {
-        console.error('Koneksi Gagal:', err);
-        const local = localStorage.getItem('edugrakAppData');
-        if (local) {
-            appData = JSON.parse(local);
-            init();
-        } else {
-            alert(`Gagal terhubung ke server.\nError: ${err.message}`);
+        console.error('Error loading AppData from server:', err);
+        appData = JSON.parse(localStorage.getItem('edugrakAppData'));
+        if (!appData) {
+            alert("Gagal terhubung ke server dan data lokal tidak ditemukan.");
+            window.location.href = 'index.html';
+            return;
         }
+        init();
     }
 }
 
@@ -172,7 +119,8 @@ function setupEventListeners() {
     });
 
     adminForm.onsubmit = (e) => {
-        handleSave(e);
+        e.preventDefault();
+        handleSave();
     };
 
     document.getElementById('btn-save').onclick = () => adminForm.requestSubmit();
@@ -535,19 +483,17 @@ function renderLatihanLevel4(type, subtes, packageName) {
 // --- RENDERING FUNCTIONS ---
 
 function renderDashboard() {
-    document.getElementById('stat-users').innerText = (appData.users || []).length;
-    document.getElementById('stat-videos').innerText = (appData.videos || []).length;
+    document.getElementById('stat-users').innerText = appData.users.length;
+    document.getElementById('stat-videos').innerText = appData.videos.length;
     
     let totalSoal = 0;
-    if (appData.questionsBank) {
-        Object.keys(appData.questionsBank).forEach(type => {
-            Object.keys(appData.questionsBank[type]).forEach(sub => {
-                totalSoal += (appData.questionsBank[type][sub] || []).length;
-            });
+    Object.keys(appData.questionsBank).forEach(type => {
+        Object.keys(appData.questionsBank[type]).forEach(sub => {
+            totalSoal += appData.questionsBank[type][sub].length;
         });
-    }
+    });
     document.getElementById('stat-questions').innerText = totalSoal;
-    document.getElementById('stat-subtes').innerText = (appData.subtesData || []).length;
+    document.getElementById('stat-subtes').innerText = appData.subtesData.length;
 }
 
 function renderUsers() {
@@ -1060,37 +1006,18 @@ function closeModal() {
 
 // --- DATA ACTIONS ---
 
-async function previewImage(input) {
+function previewImage(input) {
     if (input.files && input.files[0]) {
-        const fileLabel = document.getElementById('file-label');
-        const preview = document.getElementById('image-preview-container');
-        const imageHiddenInput = document.getElementById('image-base64');
-        
-        fileLabel.innerText = "Mengupload...";
-        preview.classList.remove('hidden');
-        preview.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-50"><div class="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>`;
-
-        const formData = new FormData();
-        formData.append('image', input.files[0]);
-
-        try {
-            const response = await fetch(`${API_URL}/upload`, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) throw new Error('Upload gagal');
-
-            const data = await response.json();
-            imageHiddenInput.value = data.url;
-            preview.innerHTML = `<img src="${data.url}" class="w-full h-full object-cover">`;
-            fileLabel.innerText = "Upload Berhasil!";
-        } catch (err) {
-            console.error('Error uploading image:', err);
-            fileLabel.innerText = "Upload Gagal!";
-            preview.classList.add('hidden');
-            alert("Gagal mengupload gambar ke Cloudinary. Silakan coba lagi.");
-        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64 = e.target.result;
+            document.getElementById('image-base64').value = base64;
+            const preview = document.getElementById('image-preview-container');
+            preview.innerHTML = `<img src="${base64}" class="w-full h-full object-cover">`;
+            preview.classList.remove('hidden');
+            document.getElementById('file-label').innerText = "Gambar Terpilih";
+        };
+        reader.readAsDataURL(input.files[0]);
     }
 }
 
@@ -1114,100 +1041,100 @@ function toggleSoalFields(type) {
     }
 }
 
-async function handleSave(e) {
-    if (e) e.preventDefault();
-    
-    const btn = document.getElementById('btn-save');
-    const originalText = btn.innerText;
-    btn.disabled = true;
-    btn.innerText = "Menyimpan...";
-
+function handleSave() {
     const formData = new FormData(adminForm);
     const data = Object.fromEntries(formData.entries());
 
-    try {
-        if (currentModalType === 'materi') {
-            if (editingId) {
-                const idx = appData.videos.findIndex(v => v.id === editingId);
-                appData.videos[idx] = { ...appData.videos[idx], ...data };
-            } else {
-                appData.videos.push({ id: Date.now(), ...data, tags: [`#${data.subject.toLowerCase()}`, '#utbk'] });
-            }
-        } else if (currentModalType === 'to-package') {
-            const { packageName, status, startDate, endDate, description, durationText, isPremium } = data;
-            if (!appData.questionsBank['Arena TO']) appData.questionsBank['Arena TO'] = {};
-            
-            const subtestDurations = {};
+    if (currentModalType === 'materi') {
+        if (editingId) {
+            const idx = appData.videos.findIndex(v => v.id === editingId);
+            appData.videos[idx] = { ...appData.videos[idx], ...data };
+        } else {
+            appData.videos.push({ id: Date.now(), ...data, tags: [`#${data.subject.toLowerCase()}`, '#utbk'] });
+        }
+    } else if (currentModalType === 'to-package') {
+        const { packageName, status, startDate, endDate, description, durationText, isPremium } = data;
+        if (!appData.questionsBank['Arena TO']) appData.questionsBank['Arena TO'] = {};
+        
+        // Extract subtest durations
+        const subtestDurations = {};
+        appData.subtesData.forEach(s => {
+            const dur = data[`sub_dur_${s.id}`];
+            if (dur) subtestDurations[s.id] = parseInt(dur);
+        });
+
+        // If editing
+        if (editingId && editingId !== packageName) {
+            appData.questionsBank['Arena TO'][packageName] = appData.questionsBank['Arena TO'][editingId];
+            delete appData.questionsBank['Arena TO'][editingId];
+        }
+
+        if (!appData.questionsBank['Arena TO'][packageName]) {
+            appData.questionsBank['Arena TO'][packageName] = {};
             appData.subtesData.forEach(s => {
-                const dur = data[`sub_dur_${s.id}`];
-                if (dur) subtestDurations[s.id] = parseInt(dur);
+                appData.questionsBank['Arena TO'][packageName][s.id] = [];
             });
+        }
 
-            if (editingId && editingId !== packageName) {
-                appData.questionsBank['Arena TO'][packageName] = appData.questionsBank['Arena TO'][editingId];
-                delete appData.questionsBank['Arena TO'][editingId];
-            }
+        // Update details
+        if (!appData.latihanDetails['Arena TO']) appData.latihanDetails['Arena TO'] = { 'all': [] };
+        const details = appData.latihanDetails['Arena TO']['all'];
+        const existingIdx = details.findIndex(d => d.name === (editingId || packageName));
+        const newDetail = { 
+            name: packageName, 
+            durationText, 
+            subtestDurations,
+            status,
+            startDate,
+            endDate,
+            description,
+            isPremium: isPremium === 'true'
+        };
+        if (existingIdx >= 0) details[existingIdx] = newDetail;
+        else details.push(newDetail);
 
-            if (!appData.questionsBank['Arena TO'][packageName]) {
-                appData.questionsBank['Arena TO'][packageName] = {};
-                appData.subtesData.forEach(s => {
-                    appData.questionsBank['Arena TO'][packageName][s.id] = [];
-                });
-            }
+        saveData();
+        renderLatihanLevel2('Arena TO');
+    } else if (currentModalType === 'latihan-package') {
+        const { lType, subtes, packageName, oldPackageName, duration, status, isPremium } = data;
+        if (!appData.questionsBank[lType][subtes]) appData.questionsBank[lType][subtes] = {};
+        
+        // Handle rename
+        if (oldPackageName && oldPackageName !== packageName) {
+            appData.questionsBank[lType][subtes][packageName] = appData.questionsBank[lType][subtes][oldPackageName];
+            delete appData.questionsBank[lType][subtes][oldPackageName];
+        }
 
-            if (!appData.latihanDetails['Arena TO']) appData.latihanDetails['Arena TO'] = { 'all': [] };
-            const details = appData.latihanDetails['Arena TO']['all'];
-            const existingIdx = details.findIndex(d => d.name === (editingId || packageName));
-            const newDetail = { 
-                name: packageName, 
-                durationText, 
-                subtestDurations,
-                status,
-                startDate,
-                endDate,
-                description,
-                isPremium: isPremium === 'true'
-            };
-            if (existingIdx >= 0) details[existingIdx] = newDetail;
-            else details.push(newDetail);
+        if (!appData.questionsBank[lType][subtes][packageName]) {
+            appData.questionsBank[lType][subtes][packageName] = [];
+        }
 
-            renderLatihanLevel2('Arena TO');
-        } else if (currentModalType === 'latihan-package') {
-            const { lType, subtes, packageName, oldPackageName, duration, status, isPremium } = data;
-            if (!appData.questionsBank[lType][subtes]) appData.questionsBank[lType][subtes] = {};
-            
-            if (oldPackageName && oldPackageName !== packageName) {
-                appData.questionsBank[lType][subtes][packageName] = appData.questionsBank[lType][subtes][oldPackageName];
-                delete appData.questionsBank[lType][subtes][oldPackageName];
-            }
+        // Update details
+        if (!appData.latihanDetails[lType]) appData.latihanDetails[lType] = {};
+        if (!appData.latihanDetails[lType][subtes]) appData.latihanDetails[lType][subtes] = [];
+        const details = appData.latihanDetails[lType][subtes];
+        const existingIdx = details.findIndex(d => d.name === (oldPackageName || packageName));
+        const newDetail = { name: packageName, duration: parseInt(duration), status, isPremium: isPremium === 'true' };
+        if (existingIdx >= 0) details[existingIdx] = newDetail;
+        else details.push(newDetail);
 
-            if (!appData.questionsBank[lType][subtes][packageName]) {
-                appData.questionsBank[lType][subtes][packageName] = [];
-            }
-
-            if (!appData.latihanDetails[lType]) appData.latihanDetails[lType] = {};
-            if (!appData.latihanDetails[lType][subtes]) appData.latihanDetails[lType][subtes] = [];
-            const details = appData.latihanDetails[lType][subtes];
-            const existingIdx = details.findIndex(d => d.name === (oldPackageName || packageName));
-            const newDetail = { name: packageName, duration: parseInt(duration), status, isPremium: isPremium === 'true' };
-            if (existingIdx >= 0) details[existingIdx] = newDetail;
-            else details.push(newDetail);
-
-            renderLatihanLevel3(lType, subtes, null);
-        } else if (currentModalType === 'soal') {
-            const { lType, subtes, q, type, image, correct, explain, a0, a1, a2, a3 } = data;
-            const pkg = data.package;
-            
-            const questionObj = { 
-                q, 
-                type, 
-                image: image || '', 
-                correct: type === 'essay' ? correct : parseInt(correct), 
-                explain, 
-                a: type === 'mc' ? [a0, a1, a2, a3] : [] 
-            };
-            
-            let targetArray;
+        saveData();
+        renderLatihanLevel3(lType, subtes, null);
+    } else if (currentModalType === 'soal') {
+        const { lType, subtes, q, type, image, correct, explain, a0, a1, a2, a3 } = data;
+        const pkg = data.package; // Avoid reserved word issues if any, though destructuring handled it
+        
+        const questionObj = { 
+            q, 
+            type, 
+            image: image || '', 
+            correct: type === 'essay' ? correct : parseInt(correct), 
+            explain, 
+            a: type === 'mc' ? [a0, a1, a2, a3] : [] 
+        };
+        
+        let targetArray;
+        try {
             if (lType === 'Arena TO') {
                 if (!appData.questionsBank[lType][pkg]) appData.questionsBank[lType][pkg] = {};
                 if (!appData.questionsBank[lType][pkg][subtes]) appData.questionsBank[lType][pkg][subtes] = [];
@@ -1223,69 +1150,90 @@ async function handleSave(e) {
             } else {
                 targetArray.push(questionObj);
             }
+            saveData();
             renderLatihanLevel4(lType, subtes, pkg);
-        } else if (currentModalType === 'subtes') {
-            const { id, name, icon, color, oldId } = data;
-            const newSubtest = { id, name, icon, color };
-            
-            if (oldId) {
-                const idx = appData.subtesData.findIndex(s => s.id === oldId);
-                if (idx !== -1) appData.subtesData[idx] = newSubtest;
-            } else {
-                appData.subtesData.push(newSubtest);
-            }
-            renderSubtes();
-        } else if (currentModalType === 'premium-package') {
-            const { name, price, duration, description } = data;
-            const features = formData.getAll('features');
-            const pkgData = { 
-                id: editingId || `PKG-${Date.now()}`, 
-                name, 
-                price: parseInt(price), 
-                duration: parseInt(duration),
-                description,
-                features
-            };
-            
-            if (!appData.premiumPackages) appData.premiumPackages = [];
-            if (editingId) {
-                const idx = appData.premiumPackages.findIndex(p => p.id === editingId);
-                appData.premiumPackages[idx] = pkgData;
-            } else {
-                appData.premiumPackages.push(pkgData);
-            }
-            renderPremium();
-        } else if (currentModalType === 'coupon') {
-            const { code, type, value, isActive } = data;
-            const couponData = { 
-                id: editingId || `CPN-${Date.now()}`, 
-                code: code.toUpperCase(), 
-                type, 
-                value: parseInt(value), 
-                isActive: isActive === 'true' 
-            };
-            
-            if (!appData.coupons) appData.coupons = [];
-            if (editingId) {
-                const idx = appData.coupons.findIndex(c => c.id === editingId);
-                appData.coupons[idx] = couponData;
-            } else {
-                appData.coupons.push(couponData);
-            }
-            renderPremium();
+        } catch (err) {
+            console.error("Error saving question:", err);
+            alert("Terjadi kesalahan saat menyimpan soal. Pastikan data struktur benar.");
+            return;
         }
-
-        await saveData();
-        closeModal();
-        showNotif();
-        switchTab(currentTab);
-    } catch (err) {
-        console.error("Save error:", err);
-        alert("Gagal menyimpan perubahan. Silakan cek koneksi.");
-    } finally {
-        btn.disabled = false;
-        btn.innerText = originalText;
+    } else if (currentModalType === 'subtes') {
+        const { id, name, icon, color, oldId } = data;
+        const newSubtest = { id, name, icon, color };
+        
+        if (oldId) {
+            const idx = appData.subtesData.findIndex(s => s.id === oldId);
+            if (idx !== -1) {
+                appData.subtesData[idx] = newSubtest;
+            }
+        } else {
+            appData.subtesData.push(newSubtest);
+        }
+        
+        saveData();
+        renderSubtes();
+    } else if (currentModalType === 'config-item') {
+        const { type, subtes, name, duration } = data;
+        if (!appData.latihanDetails[type]) appData.latihanDetails[type] = {};
+        if (!appData.latihanDetails[type][subtes]) appData.latihanDetails[type][subtes] = [];
+        appData.latihanDetails[type][subtes].push({ name, duration: parseInt(duration) });
+    } else if (currentModalType === 'exercise-type') {
+        const { name, icon, desc, isPremium } = data;
+        if (!appData.questionsBank[name] || editingId) {
+            if (!appData.questionsBank[name]) appData.questionsBank[name] = {};
+            if (!appData.latihanDetails[name]) appData.latihanDetails[name] = {};
+            if (!appData.exerciseConfigs) appData.exerciseConfigs = {};
+            appData.exerciseConfigs[name] = { icon, desc, isPremium: isPremium === 'true' };
+            saveData();
+            renderLatihanLevel1();
+        } else {
+            alert("Jenis latihan ini sudah ada.");
+            return;
+        }
+    } else if (currentModalType === 'premium-package') {
+        const { name, price, duration, description } = data;
+        const features = formData.getAll('features');
+        const pkgData = { 
+            id: editingId || `PKG-${Date.now()}`, 
+            name, 
+            price: parseInt(price), 
+            duration: parseInt(duration),
+            description,
+            features
+        };
+        
+        if (!appData.premiumPackages) appData.premiumPackages = [];
+        if (editingId) {
+            const idx = appData.premiumPackages.findIndex(p => p.id === editingId);
+            appData.premiumPackages[idx] = pkgData;
+        } else {
+            appData.premiumPackages.push(pkgData);
+        }
+        renderPremium();
+    } else if (currentModalType === 'coupon') {
+        const { code, type, value, isActive } = data;
+        const couponData = { 
+            id: editingId || `CPN-${Date.now()}`, 
+            code: code.toUpperCase(), 
+            type, 
+            value: parseInt(value), 
+            isActive: isActive === 'true' 
+        };
+        
+        if (!appData.coupons) appData.coupons = [];
+        if (editingId) {
+            const idx = appData.coupons.findIndex(c => c.id === editingId);
+            appData.coupons[idx] = couponData;
+        } else {
+            appData.coupons.push(couponData);
+        }
+        renderPremium();
     }
+
+    saveData();
+    closeModal();
+    showNotif();
+    switchTab(currentTab); // Refresh current tab
 }
 
 // Edit functions
