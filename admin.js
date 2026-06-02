@@ -50,21 +50,38 @@ async function initAppData() {
             throw new Error(`HTTP Error! Status: ${response.status}`);
         }
 
-        appData = await response.json();
-        if (!appData || Object.keys(appData).length < 5) {
-            alert("Data aplikasi masih kosong. Inisialisasi data di website utama dulu.");
-            window.location.href = '../index.html';
-            return;
+        const data = await response.json();
+        
+        // Validasi data: Jika data kosong, gunakan DEFAULT_DATA dari script.js sebagai awal
+        if (!data || Object.keys(data).length === 0) {
+            console.log('Data server kosong, menginisialisasi dengan data default...');
+            appData = {
+                users: [],
+                videos: [],
+                questionsBank: { 'Bedah Materi': {}, 'Soal Paket': {}, 'Kuis Kilat': {}, 'Arena TO': {} },
+                latihanDetails: { 'Bedah Materi': {}, 'Soal Paket': {}, 'Kuis Kilat': {}, 'Arena TO': {} },
+                subtesData: [
+                    { id: 'PU', name: 'Penalaran Umum', icon: '🧠', color: 'indigo' },
+                    { id: 'PK', name: 'Pengetahuan Kuantitatif', icon: '📊', color: 'amber' }
+                ],
+                premiumPackages: [],
+                coupons: []
+            };
+        } else {
+            appData = data;
         }
+        
         init();
     } catch (err) {
         console.error('Koneksi Gagal:', err);
-        appData = JSON.parse(localStorage.getItem('edugrakAppData'));
-        if (!appData) {
-            alert(`Gagal terhubung ke server.\nError: ${err.message}\n\nSilakan cek tab Logs di Vercel atau pastikan CORS sudah di-redeploy.`);
-            return;
+        // Jika gagal konek, coba ambil dari localStorage sebagai cadangan
+        const local = localStorage.getItem('edugrakAppData');
+        if (local) {
+            appData = JSON.parse(local);
+            init();
+        } else {
+            alert(`Gagal terhubung ke server.\nError: ${err.message}\n\nSilakan cek koneksi internet atau tab Logs di Vercel.`);
         }
-        init();
     }
 }
 
@@ -488,17 +505,19 @@ function renderLatihanLevel4(type, subtes, packageName) {
 // --- RENDERING FUNCTIONS ---
 
 function renderDashboard() {
-    document.getElementById('stat-users').innerText = appData.users.length;
-    document.getElementById('stat-videos').innerText = appData.videos.length;
+    document.getElementById('stat-users').innerText = (appData.users || []).length;
+    document.getElementById('stat-videos').innerText = (appData.videos || []).length;
     
     let totalSoal = 0;
-    Object.keys(appData.questionsBank).forEach(type => {
-        Object.keys(appData.questionsBank[type]).forEach(sub => {
-            totalSoal += appData.questionsBank[type][sub].length;
+    if (appData.questionsBank) {
+        Object.keys(appData.questionsBank).forEach(type => {
+            Object.keys(appData.questionsBank[type]).forEach(sub => {
+                totalSoal += (appData.questionsBank[type][sub] || []).length;
+            });
         });
-    });
+    }
     document.getElementById('stat-questions').innerText = totalSoal;
-    document.getElementById('stat-subtes').innerText = appData.subtesData.length;
+    document.getElementById('stat-subtes').innerText = (appData.subtesData || []).length;
 }
 
 function renderUsers() {
