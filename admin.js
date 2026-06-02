@@ -52,21 +52,41 @@ async function initAppData() {
 
         const data = await response.json();
         
-        // Validasi data: Jika data kosong, gunakan DEFAULT_DATA dari script.js sebagai awal
-        if (!data || Object.keys(data).length === 0) {
-            console.log('Data server kosong, menginisialisasi dengan data default...');
+        // JIKA DATABASE KOSONG, ISI DENGAN STRUKTUR DEFAULT AGAR TOMBOL MUNCUL
+        if (!data || Object.keys(data).length === 0 || !data.questionsBank) {
+            console.log('Database baru/kosong, menginisialisasi struktur...');
             appData = {
                 users: [],
                 videos: [],
-                questionsBank: { 'Bedah Materi': {}, 'Soal Paket': {}, 'Kuis Kilat': {}, 'Arena TO': {} },
-                latihanDetails: { 'Bedah Materi': {}, 'Soal Paket': {}, 'Kuis Kilat': {}, 'Arena TO': {} },
+                questionsBank: { 
+                    'Bedah Materi': {}, 
+                    'Soal Paket': {}, 
+                    'Kuis Kilat': {}, 
+                    'Arena TO': {} 
+                },
+                latihanDetails: { 
+                    'Bedah Materi': {}, 
+                    'Soal Paket': {}, 
+                    'Kuis Kilat': {}, 
+                    'Arena TO': {} 
+                },
                 subtesData: [
                     { id: 'PU', name: 'Penalaran Umum', icon: '🧠', color: 'indigo' },
-                    { id: 'PK', name: 'Pengetahuan Kuantitatif', icon: '📊', color: 'amber' }
+                    { id: 'PK', name: 'Pengetahuan Kuantitatif', icon: '📊', color: 'amber' },
+                    { id: 'PPU', name: 'Pengetahuan Umum', icon: '📖', color: 'cyan' },
+                    { id: 'LBI', name: 'Literasi Indo', icon: '🇮🇩', color: 'emerald' }
                 ],
+                exerciseConfigs: {
+                    'Bedah Materi': { icon: '📖', desc: 'Latihan per topik materi.', isPremium: false },
+                    'Soal Paket': { icon: '📝', desc: 'Simulasi paket soal.', isPremium: false },
+                    'Kuis Kilat': { icon: '⚡', desc: 'Kuis singkat.', isPremium: false },
+                    'Arena TO': { icon: '🏆', desc: 'Tryout Nasional.', isPremium: false }
+                },
                 premiumPackages: [],
                 coupons: []
             };
+            // Simpan struktur ini ke server agar database tidak kosong lagi
+            await saveData();
         } else {
             appData = data;
         }
@@ -74,13 +94,12 @@ async function initAppData() {
         init();
     } catch (err) {
         console.error('Koneksi Gagal:', err);
-        // Jika gagal konek, coba ambil dari localStorage sebagai cadangan
         const local = localStorage.getItem('edugrakAppData');
         if (local) {
             appData = JSON.parse(local);
             init();
         } else {
-            alert(`Gagal terhubung ke server.\nError: ${err.message}\n\nSilakan cek koneksi internet atau tab Logs di Vercel.`);
+            alert(`Gagal terhubung ke server.\nError: ${err.message}`);
         }
     }
 }
